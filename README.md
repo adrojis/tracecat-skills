@@ -1,0 +1,3 @@
+# tracecat-skills
+
+Initializing repository...
