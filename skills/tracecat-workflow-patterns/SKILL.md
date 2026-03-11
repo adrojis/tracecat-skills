@@ -275,14 +275,47 @@ actions:
 | Null check | `${{ ACTIONS.x.result != None }}` |
 | Start delay | `start_delay: 5.0` (seconds) |
 
+## CRITICAL: Action Type Selection Priority
+
+**Always use native/official Tracecat action types first.** Only fall back to `core.http_request` or `core.script.run_python` when no built-in action exists.
+
+### Priority order:
+
+1. **Native integrations** (e.g., `tools.virustotal.lookup_ip_address`, `tools.splunk.search_events`, `tools.slack.post_message`, `tools.okta.list_users`, `tools.jira.create_issue`)
+2. **Built-in core actions** (e.g., `core.cases.create_case`, `core.cases.update_case`, `core.cases.create_comment`, `core.transform.reshape`, `core.transform.filter`, `core.require`, `core.workflow.execute`)
+3. **`core.http_request`** — only for external APIs without native integration (e.g., Microsoft Graph API, custom internal APIs, vendor APIs not yet integrated)
+4. **`core.script.run_python`** — only when logic is too complex for reshape/filter/expressions (e.g., hash computation, complex data transformation, multi-step calculations)
+
+### Built-in case management actions (use instead of reshape/http):
+
+| Action | Type | Use case |
+|--------|------|----------|
+| Create case | `core.cases.create_case` | Create an incident case |
+| Update case | `core.cases.update_case` | Update case status/priority/fields |
+| Add comment | `core.cases.create_comment` | Add analysis notes to a case |
+
+### When to use `core.http_request`:
+
+- Calling external APIs with no native Tracecat integration (Graph API, CrowdStrike, Defender, GLIMPS, etc.)
+- Interacting with custom/internal REST APIs
+- Vendor-specific endpoints not covered by built-in tools
+
+### When to use `core.script.run_python`:
+
+- Computing hashes (SHA256, MD5, SHA1)
+- Complex data aggregation/scoring logic
+- String manipulation beyond what expressions support
+- Any computation that can't be expressed with reshape + expressions
+
 ## Workflow Architecture Best Practices
 
-1. **Reshape = debug**: Use `core.transform.reshape` to rename/inspect data between actions
-2. **Stop-check pattern**: Validate each step before proceeding (run_if on success)
-3. **Error contract**: Python UDFs should return `{"success": bool, "error": str}`
-4. **Dual notification**: Case comments (audit trail) + Slack (real-time)
-5. **Lazy enrichment**: Pull data on-demand, not pre-cached
-6. **Schema-constrained AI**: Force LLM to return structured JSON, not free text
+1. **Native actions first**: Always check if a built-in action exists before using http_request or python
+2. **Reshape = debug/transform**: Use `core.transform.reshape` to rename/inspect/aggregate data between actions
+3. **Stop-check pattern**: Validate each step before proceeding (run_if on success)
+4. **Error contract**: Python UDFs should return `{"success": bool, "error": str}`
+5. **Dual notification**: Case comments (audit trail) + Slack (real-time)
+6. **Lazy enrichment**: Pull data on-demand, not pre-cached
+7. **Schema-constrained AI**: Force LLM to return structured JSON, not free text
 
 ## Programmatic Workflow Creation (API / MCP)
 
@@ -370,3 +403,11 @@ Content-Type: application/json
 ```
 
 The webhook must be set to `"online"` status first.
+
+## Common Mistakes to Avoid
+
+| Mistake | Fix |
+|---------|-----|
+| Trigger not connected to first action | Always add edge from trigger to first action in graph setup |
+| Child workflows with missing entrypoint | Verify workflow has a trigger marked as `entrypoint: true` |
+| SIEM severity mapping mismatch | Normalize severity values (critical/high/medium/low/info) before case creation |

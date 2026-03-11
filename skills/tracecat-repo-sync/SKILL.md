@@ -1,6 +1,6 @@
 ---
 name: tracecat-repo-sync
-description: Synchronize local Tracecat MCP server code and Claude Code skills to their GitHub repositories. Use when modifying MCP server TypeScript files, updating skills, discovering new API quirks, or when the user asks to sync changes.
+description: Synchronize local Tracecat MCP server code and Claude Code skills to their GitHub repositories. Only use when the user explicitly asks to sync changes to GitHub.
 ---
 
 # Tracecat Repo Sync
@@ -11,11 +11,14 @@ Synchronize local changes to the upstream GitHub repositories:
 
 ## When to Trigger
 
-Proactively suggest syncing when:
-1. A `.ts` file in `mcp_server/src/` has been modified
-2. A `SKILL.md` in `~/.claude/skills/tracecat-*` has been modified
-3. A new API quirk or workflow pattern has been discovered and documented
-4. The user explicitly asks to sync (`/repo-sync` or "sync to GitHub")
+Do NOT activate this skill automatically. Instead, follow this behavior:
+
+1. **After significant modifications** to MCP server code (`.ts` files) or skills (`SKILL.md`), **ask the user** if they want to sync to GitHub using `AskUserQuestion`. Example prompt: "Des fichiers ont ete modifies (list). Veux-tu synchroniser ces changements vers GitHub ?"
+2. **If the user says yes**, then activate this skill and proceed with the sync procedure below.
+3. **If the user says no**, do nothing.
+4. **If the user explicitly asks** to sync ("sync to GitHub", "push to GitHub", "repo-sync"), activate directly without asking.
+
+Do NOT ask for trivial changes (typos, single-line fixes). Only ask when changes are meaningful enough to warrant a push.
 
 ## File Mappings
 
@@ -75,6 +78,17 @@ Report which files were synced and provide links to the commits.
 5. **One commit per logical change** — don't bundle unrelated changes
 6. **For new API quirks**: update the README.md of `adrojis/tracecat-mcp` (add to API Quirks section)
 7. **For new workflow patterns**: update the README.md of `adrojis/tracecat-skills` (add to patterns section)
+
+## Behavior: Opt-in Sync
+
+**Always ask before syncing**, unless the user explicitly requests it:
+
+- **User modifies file**: Ask "Files X, Y, Z modified. Sync to GitHub?" (only for significant changes)
+- **User says "yes"**: Proceed with sync
+- **User says "no"**: Do nothing
+- **User says "sync to GitHub"**: Activate directly, no confirmation needed
+
+This prevents accidental pushes while respecting explicit user intent.
 
 ## MCP Server Sync — Full File List
 

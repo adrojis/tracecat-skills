@@ -10,7 +10,7 @@ description: Configure Tracecat workflow actions correctly. Use when setting up 
 ### HTTP Request (`core.http_request`)
 
 | Parameter | Type | Required | Default |
-|-----------|------|----------|--------|
+|-----------|------|----------|----------|
 | `url` | str | Yes | -- |
 | `method` | GET/POST/PUT/PATCH/DELETE | Yes | -- |
 | `headers` | dict | No | -- |
@@ -31,7 +31,7 @@ Returns: `{status_code, headers, data}`
 Same as `core.http_request` plus:
 
 | Parameter | Type | Default |
-|-----------|------|--------|
+|-----------|------|----------|
 | `poll_retry_codes` | list[int] | -- |
 | `poll_interval` | float | -- |
 | `poll_max_attempts` | int | 10 |
@@ -89,7 +89,7 @@ python_lambda: >-
 ### Python Script (`core.script.run_python`)
 
 | Parameter | Type | Default |
-|-----------|------|--------|
+|-----------|------|----------|
 | `script` | str (Python code) | required |
 | `inputs` | dict | -- |
 | `dependencies` | list[str] | -- |
@@ -159,7 +159,7 @@ Right: `def main(): return {"result": 42}`
 ### Child Workflow (`core.workflow.execute`)
 
 | Parameter | Type | Default |
-|-----------|------|--------|
+|-----------|------|----------|
 | `workflow_alias` | str | -- |
 | `workflow_id` | str | -- |
 | `trigger_inputs` | dict | -- |
@@ -298,7 +298,7 @@ Uses `dateparser`: `"tomorrow at 2pm"`, `"in 2 hours"`, `"2025-05-01 at 10am"`
 ### Contexts
 
 | Context | Syntax | Example |
-|---------|--------|--------|
+|---------|--------|----------|
 | Action output | `ACTIONS.ref.result` | `${{ ACTIONS.get_data.result.items[0] }}` |
 | Trigger data | `TRIGGER` | `${{ TRIGGER.alert_id }}` |
 | Secrets | `SECRETS.name.key` | `${{ SECRETS.splunk.SPLUNK_API_KEY }}` |
@@ -309,7 +309,7 @@ Uses `dateparser`: `"tomorrow at 2pm"`, `"in 2 hours"`, `"2025-05-01 at 10am"`
 ### Operators
 
 | Operator | Example |
-|----------|--------|
+|----------|----------|
 | Comparison | `==`, `!=`, `>`, `>=`, `<`, `<=` |
 | Logical | `&&`, `\|\|` |
 | Membership | `in`, `not in` |
@@ -338,3 +338,18 @@ ${{ bool("true") }}
 | `for_each` with single item | String gets iterated char-by-char; use `core.http_request` directly |
 | Dots in field names | Quote them: `result."kibana.alert.rule.name"` |
 | AI returns free text | Use schema-constrained JSON output |
+| Using `code:` for run_python | Field is `script:` (NOT `code:`) |
+| Using reshape for case creation | Use `core.cases.create_case` (native action) |
+| Using reshape for case update | Use `core.cases.update_case` (native action) |
+| Using reshape for case comment | Use `core.cases.create_comment` (native action) |
+| Using http_request when native action exists | Always prefer native integrations (tools.*, core.cases.*, core.transform.*) |
+| Missing `verify_ssl: false` for self-signed Splunk/Wazuh | Add to HTTP request config |
+| Slow API timeout (default 10s) | Increase `timeout` param for long-running APIs |
+
+## Action Type Selection Rule
+
+**ALWAYS prefer native Tracecat actions over generic ones:**
+
+1. **Native integrations first** (`tools.virustotal.*`, `tools.splunk.*`, `tools.slack.*`, `core.cases.*`, etc.)
+2. **`core.http_request`** only for external APIs without native integration
+3. **`core.script.run_python`** only when logic can't be expressed with reshape/filter/expressions
