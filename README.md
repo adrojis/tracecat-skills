@@ -292,6 +292,22 @@ All skills compose seamlessly.
 
 ---
 
+## Roadmap
+
+This project is under active development and will continue to evolve alongside Tracecat. As the platform ships new features, action types, and API changes, we update the skills to match.
+
+Planned areas of improvement:
+
+- **More integrations** — action templates for CrowdStrike, Wazuh, MISP, TheHive, and others
+- **More skills** — dedicated skills for advanced topics (child workflows, multi-tenant setups, compliance automation)
+- **Evaluation suite** — automated quality checks for each skill
+- **Claude.ai / API support** — installation guides beyond Claude Code CLI
+- **Community patterns** — curated workflow templates contributed by users
+
+Contributions, issues, and feature requests are welcome.
+
+---
+
 ## Related Projects
 
 - [tracecat-mcp](https://github.com/adrojis/tracecat-mcp) — MCP server for Tracecat (49 tools)
