@@ -233,15 +233,6 @@ Your `~/.claude/skills/` directory should look like:
   (... 12 skill directories total)
 ```
 
-### Install Integration Templates (Optional)
-
-The `integrations/` folder contains ready-made action templates for specific platforms:
-
-```bash
-# Example: install HarfangLab EDR templates
-cp -r tracecat-skills/integrations/harfanglab/ /path/to/your/tracecat/templates/
-```
-
 ---
 
 ## Usage
@@ -285,7 +276,6 @@ All skills compose seamlessly.
 ## What's Included
 
 - **12** complementary skills that work together
-- **17** HarfangLab EDR integration templates
 - **COMMON_MISTAKES.md** for each skill — catalog of pitfalls with fixes
 - **EXAMPLES.md** for each skill — real-world usage examples
 - **Error catalog** for validation and debugging

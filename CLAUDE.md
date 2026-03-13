@@ -9,8 +9,7 @@ skills/                          # 12 Claude Code skills
     README.md                    # Human-readable documentation
     COMMON_MISTAKES.md           # Pitfall catalog with fixes
     EXAMPLES.md                  # Real-world usage examples
-integrations/                    # Action templates for specific platforms
-  harfanglab/                    # 17 HarfangLab EDR templates
+integrations/                    # Action templates for specific platforms (coming soon)
 .claude-plugin/
   plugin.json                    # Plugin metadata
   marketplace.json               # Marketplace listing
