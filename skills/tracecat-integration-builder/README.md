@@ -1,23 +1,42 @@
 # tracecat-integration-builder
 
-Build Tracecat integrations to connect external APIs/tools. Two methods, same output.
+Intègre n'importe quelle technologie dans Tracecat à partir d'une URL.
 
-## Purpose
+## Comment ça marche
 
-Guide through building integrations via two paths:
-- **Path A**: OpenAPI 3.0 spec → `openapi_to_template.py` → auto-generated YAML templates
-- **Path B**: No spec → manual YAML templates (research API docs, write by hand)
+1. L'utilisateur donne une URL (docs, API reference, page produit)
+2. Le skill recherche l'API, comprend l'auth, identifie les endpoints utiles
+3. Il construit l'intégration complète : secret, actions, edges, positionnement
+4. Il valide, teste et déploie
 
-Both produce YAML action templates using `core.http_request` + Tracecat secrets. No custom OAuth, no separate MCP servers needed.
+## Quand utiliser
 
-## When to Trigger
+- "Intègre-moi VirusTotal" + URL de la doc
+- "On veut connecter notre Wazuh" + URL
+- "Ajoute CrowdStrike à Tracecat" + URL
+- N'importe quel service avec une API REST ou un webhook
 
-- User wants to add a new vendor integration
-- User has an OpenAPI spec to convert
-- User asks about `openapi_to_template.py`
-- User wants to connect an API that has no native Tracecat integration
+## Ce qui est géré automatiquement
 
-## Key Reference
+| Aspect | Comment |
+|--------|---------|
+| Recherche API | WebFetch de la doc, recherche d'OpenAPI spec |
+| Auth | Détecte le type (API key, OAuth2, Basic, JWT) et configure les secrets |
+| Actions | Crée via MCP avec inputs YAML corrects |
+| Edges & Layout | Connecte et positionne tous les nœuds |
+| Validation | Validate + dry run avant deploy |
 
-- OpenAPI Converter docs: https://docs.tracecat.com/integrations/openapi-converter
-- Real example: HarfangLab EDR (Path B — 17 manual templates, alert triage workflow)
+## 3 chemins possibles
+
+- **Path A** : OpenAPI spec existe → Tracecat OpenAPI Converter (automatique)
+- **Path B** : Pas de spec → Build manuel avec `core.http_request` + secrets (le plus courant)
+- **Path C** : Service push-based → Webhook trigger Tracecat
+
+## Files
+
+| File | Description |
+|------|-------------|
+| `SKILL.md` | Guide complet : process, auth patterns, layout rules, SOAR templates |
+| `COMMON_MISTAKES.md` | 12 erreurs courantes |
+| `EXAMPLES.md` | 5 exemples : VirusTotal, Wazuh, Splunk, CrowdStrike, TheHive |
+| `README.md` | This file |

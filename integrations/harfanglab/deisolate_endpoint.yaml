@@ -1,0 +1,29 @@
+type: action
+definition:
+  name: deisolate_endpoint
+  namespace: tools.harfanglab
+  title: Deisolate Endpoint
+  description: |
+    Remove network isolation from an endpoint via HarfangLab EDR.
+    Restores full network connectivity to the agent.
+  author: Tracecat Integration Builder
+  display_group: HarfangLab EDR
+  expects:
+    base_url:
+      type: str
+      description: "HarfangLab instance URL"
+      default: null
+    agent_id:
+      type: str
+      description: "Agent ID to deisolate"
+      default: null
+  steps:
+    - ref: http_call
+      action: core.http_request
+      args:
+        method: POST
+        url: ${{ inputs.base_url }}/api/data/endpoint/Agent/${{ inputs.agent_id }}/deisolate/
+        headers:
+          Authorization: Token ${{ SECRETS.harfanglab.API_KEY }}
+          Content-Type: application/json
+  returns: ${{ steps.http_call.result }}

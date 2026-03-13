@@ -1,148 +1,90 @@
 ---
 name: tracecat-repo-sync
-description: Synchronize local Tracecat MCP server code and Claude Code skills to their GitHub repositories. Only use when the user explicitly asks to sync changes to GitHub.
+description: Activate when user asks to sync, push, or publish local Tracecat MCP server code or Claude Code skills to their GitHub repositories
 ---
 
-# Tracecat Repo Sync
+# Tracecat Repository Sync
 
-Synchronize local changes to the upstream GitHub repositories:
-- **MCP Server code** -> `adrojis/tracecat-mcp` (branch: `main`)
-- **Skills** -> `adrojis/tracecat-skills` (branch: `main`)
+You help synchronize local Tracecat MCP server code and skills to their GitHub repositories.
 
-## When to Trigger
+## Repositories
 
-Do NOT activate this skill automatically. Instead, follow this behavior:
+| Component | Local Path | GitHub Repo |
+|-----------|-----------|-------------|
+| MCP Server | `<project_root>/mcp_server/` | Owner's `tracecat-mcp` repo |
+| Skills | `<project_root>/tracecat_skills/` | Owner's `tracecat-skills` repo |
 
-1. **After significant modifications** to MCP server code (`.ts` files) or skills (`SKILL.md`), **ask the user** if they want to sync to GitHub using `AskUserQuestion`. Example prompt: "Des fichiers ont ete modifies (list). Veux-tu synchroniser ces changements vers GitHub ?"
-2. **If the user says yes**, then activate this skill and proceed with the sync procedure below.
-3. **If the user says no**, do nothing.
-4. **If the user explicitly asks** to sync ("sync to GitHub", "push to GitHub", "repo-sync"), activate directly without asking.
-
-Do NOT ask for trivial changes (typos, single-line fixes). Only ask when changes are meaningful enough to warrant a push.
-
-## File Mappings
-
-| Local Path | GitHub Repo | Remote Path |
-|------------|-------------|-------------|
-| `mcp_server/src/*` | `adrojis/tracecat-mcp` | `src/*` |
-| `~/.claude/skills/tracecat-*/SKILL.md` | `adrojis/tracecat-skills` | `skills/tracecat-*/SKILL.md` |
-| `~/.claude/skills/tracecat-*/README.md` | `adrojis/tracecat-skills` | `skills/tracecat-*/README.md` |
+> **Note:** Local paths and GitHub owner are resolved at runtime from the working directory and git config.
 
 ## Sync Procedure
 
-### Step 1: Identify Changed Files
+### 1. Identify changed files
+Compare local files with the GitHub repository to find what has changed.
 
-Compare local files against their GitHub versions:
-- Read the local file content
-- Fetch the remote file via `mcp__my-github__get_file_contents` to get its SHA and content
-- If they differ, the file needs syncing
+### 2. Review changes
+Show the user what files will be pushed and what content has changed.
 
-### Step 2: Confirm with User
+### 3. Push to GitHub
+Use `mcp__my-github__push_files` or `mcp__my-github__create_or_update_file` to push changes.
 
-Before pushing, show the user:
-- Which files will be updated
-- Which repo/branch they'll go to
-- A proposed commit message
+## MCP Server Files to Sync
 
-**Always ask for confirmation before pushing.** Never push without explicit user approval.
-
-### Step 3: Push Changes
-
-For each file to sync:
-
-1. Read the local file content
-2. Get the current SHA from GitHub via `mcp__my-github__get_file_contents`
-3. Push via `mcp__my-github__create_or_update_file` with:
-   - `owner`: `adrojis`
-   - `repo`: target repo name
-   - `path`: mapped remote path
-   - `content`: local file content
-   - `message`: descriptive commit message in English
-   - `branch`: `main`
-   - `sha`: current file SHA (required for updates, omit for new files)
-
-### Step 4: Confirm Success
-
-Report which files were synced and provide links to the commits.
-
-## Sync Rules
-
-1. **Always confirm** before pushing — never auto-push
-2. **Never sync** `.env`, credentials, or secrets files
-3. **Never sync** `mcp_server/dist/` (compiled output) or `node_modules/`
-4. **Commit messages** must be in English, descriptive, and follow conventional style:
-   - `feat: add schedule management tools`
-   - `fix: correct workspace_id query param handling`
-   - `docs: update API quirks in README`
-   - `refactor: simplify client authentication flow`
-5. **One commit per logical change** — don't bundle unrelated changes
-6. **For new API quirks**: update the README.md of `adrojis/tracecat-mcp` (add to API Quirks section)
-7. **For new workflow patterns**: update the README.md of `adrojis/tracecat-skills` (add to patterns section)
-
-## Behavior: Opt-in Sync
-
-**Always ask before syncing**, unless the user explicitly requests it:
-
-- **User modifies file**: Ask "Files X, Y, Z modified. Sync to GitHub?" (only for significant changes)
-- **User says "yes"**: Proceed with sync
-- **User says "no"**: Do nothing
-- **User says "sync to GitHub"**: Activate directly, no confirmation needed
-
-This prevents accidental pushes while respecting explicit user intent.
-
-## MCP Server Sync — Full File List
-
-Files under `mcp_server/src/` that map to `src/` in `adrojis/tracecat-mcp`:
-
+Key files in the MCP server:
 ```
-src/index.ts
-src/server.ts
-src/client.ts
-src/types.ts
-src/tools/*.ts
+mcp_server/
+  src/
+    index.ts          # Entry point
+    client.ts         # API client
+    tools.ts          # MCP tool definitions
+    types.ts          # TypeScript types
+  package.json
+  tsconfig.json
+  CLAUDE.md           # Dev guide
+  .env                # DO NOT SYNC (credentials)
 ```
 
-Also sync root config files if changed:
-```
-package.json
-tsconfig.json
-README.md
-```
+**Never sync:** `.env`, `node_modules/`, `dist/`, `.env.local`
 
-## Skills Sync — Full Skill List
-
-Skills under `~/.claude/skills/` that map to `skills/` in `adrojis/tracecat-skills`:
+## Skills Files to Sync
 
 ```
-skills/tracecat-action-configuration/
-skills/tracecat-case-management/
-skills/tracecat-mcp-tools-expert/
-skills/tracecat-secrets-integrations/
-skills/tracecat-workflow-patterns/
-skills/tracecat-repo-sync/
+tracecat_skills/
+  .claude-plugin/
+    plugin.json       # Plugin manifest
+  skills/
+    tracecat-action-configuration/SKILL.md
+    tracecat-case-management/SKILL.md
+    tracecat-code-python/SKILL.md
+    tracecat-integration-expert/SKILL.md
+    tracecat-mcp-tools-expert/SKILL.md
+    tracecat-secrets-integrations/SKILL.md
+    tracecat-validation-debug/SKILL.md
+    tracecat-workflow-patterns/SKILL.md
+    tracecat-yaml-syntax/SKILL.md
+    tracecat-repo-sync/SKILL.md
 ```
 
-## Example Usage
+## GitHub MCP Tools
 
-**User modifies `mcp_server/src/tools/workflows.ts`:**
+| Tool | Usage |
+|------|-------|
+| `mcp__my-github__get_file_contents` | Read current file from GitHub |
+| `mcp__my-github__create_or_update_file` | Create or update a single file (needs SHA for updates) |
+| `mcp__my-github__push_files` | Push multiple files in a single commit |
+| `mcp__my-github__list_commits` | Check latest commits |
 
-> "I notice you've modified `mcp_server/src/tools/workflows.ts`. Would you like me to sync this to `adrojis/tracecat-mcp`?"
+## Safety Rules
 
-Then if confirmed:
-1. Read local `mcp_server/src/tools/workflows.ts`
-2. Get SHA from `adrojis/tracecat-mcp` for `src/tools/workflows.ts`
-3. Push with message like `feat: add workflow export tool`
+1. **Never push `.env` files** or any file containing credentials
+2. **Always show diff** to user before pushing
+3. **Use descriptive commit messages** summarizing changes
+4. **Push to `main` branch** unless user specifies otherwise
+5. **Check for existing files** first to get SHA (required for updates)
 
-**User discovers a new API quirk:**
+## Related Skills
+- **tracecat-mcp-tools-expert** — MCP tools reference
 
-> "I've documented a new API quirk. Would you like me to update the README in `adrojis/tracecat-mcp` with this finding?"
-
-**Bulk sync:**
-
-> User: "sync everything to GitHub"
-
-1. List all local files in `mcp_server/src/` and `~/.claude/skills/tracecat-*/`
-2. Compare each against GitHub
-3. Show diff summary
-4. Ask for confirmation
-5. Push changed files with appropriate commit messages
+## Reference Files
+- [Common Mistakes](./COMMON_MISTAKES.md)
+- [Examples](./EXAMPLES.md)
+- [README](./README.md)

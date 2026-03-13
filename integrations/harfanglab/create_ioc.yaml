@@ -1,0 +1,51 @@
+type: action
+definition:
+  name: create_ioc
+  namespace: tools.harfanglab
+  title: Create IOC Rule
+  description: |
+    Add a new IOC (Indicator of Compromise) rule to HarfangLab threat intelligence.
+    Supports types: hash (md5/sha1/sha256), ip, filename, filepath, registry.
+  author: Tracecat Integration Builder
+  display_group: HarfangLab EDR
+  expects:
+    base_url:
+      type: str
+      description: "HarfangLab instance URL"
+      default: null
+    ioc_type:
+      type: str
+      description: "IOC type: md5, sha1, sha256, ip, filename, filepath, registry"
+      default: null
+    ioc_value:
+      type: str
+      description: "IOC value (hash, IP, filename, etc.)"
+      default: null
+    comment:
+      type: str
+      description: "Description/comment for this IOC"
+      default: "Added by Tracecat SOAR"
+    source_id:
+      type: str
+      description: "IOC source ID to associate with"
+      default: null
+    status:
+      type: str
+      description: "IOC status: active, inactive"
+      default: active
+  steps:
+    - ref: http_call
+      action: core.http_request
+      args:
+        method: POST
+        url: ${{ inputs.base_url }}/api/data/threat_intelligence/IOCRule/
+        headers:
+          Authorization: Token ${{ SECRETS.harfanglab.API_KEY }}
+          Content-Type: application/json
+        payload:
+          type: ${{ inputs.ioc_type }}
+          value: ${{ inputs.ioc_value }}
+          comment: ${{ inputs.comment }}
+          source_id: ${{ inputs.source_id }}
+          hl_status: ${{ inputs.status }}
+  returns: ${{ steps.http_call.result }}

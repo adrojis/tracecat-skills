@@ -1,0 +1,30 @@
+type: action
+definition:
+  name: isolate_endpoint
+  namespace: tools.harfanglab
+  title: Isolate Endpoint
+  description: |
+    Isolate an endpoint from the network via HarfangLab EDR.
+    The agent will lose network connectivity except for communication with the EDR manager.
+    WARNING: This is a destructive action — use with approval gates in production workflows.
+  author: Tracecat Integration Builder
+  display_group: HarfangLab EDR
+  expects:
+    base_url:
+      type: str
+      description: "HarfangLab instance URL"
+      default: null
+    agent_id:
+      type: str
+      description: "Agent ID to isolate"
+      default: null
+  steps:
+    - ref: http_call
+      action: core.http_request
+      args:
+        method: POST
+        url: ${{ inputs.base_url }}/api/data/endpoint/Agent/${{ inputs.agent_id }}/isolate/
+        headers:
+          Authorization: Token ${{ SECRETS.harfanglab.API_KEY }}
+          Content-Type: application/json
+  returns: ${{ steps.http_call.result }}

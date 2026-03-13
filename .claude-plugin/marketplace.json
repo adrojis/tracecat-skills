@@ -1,0 +1,7 @@
+{
+  "name": "tracecat-skills",
+  "title": "Tracecat SOAR Skills",
+  "description": "Expert skills for building and managing Tracecat SOAR workflows, case management, and security automation with Claude Code.",
+  "categories": ["security", "automation", "soar"],
+  "icon": "shield"
+}

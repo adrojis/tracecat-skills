@@ -1,0 +1,30 @@
+type: action
+definition:
+  name: dump_process
+  namespace: tools.harfanglab
+  title: Dump Process Memory
+  description: |
+    Request a memory dump of a running process on an endpoint via HarfangLab EDR.
+    Useful for forensic analysis of suspicious processes.
+    WARNING: This generates large files — use selectively.
+  author: Tracecat Integration Builder
+  display_group: HarfangLab EDR
+  expects:
+    base_url:
+      type: str
+      description: "HarfangLab instance URL"
+      default: null
+    process_uuid:
+      type: str
+      description: "UUID of the process to dump (from telemetry data)"
+      default: null
+  steps:
+    - ref: http_call
+      action: core.http_request
+      args:
+        method: POST
+        url: ${{ inputs.base_url }}/api/data/telemetry/Processes/${{ inputs.process_uuid }}/requestDumpProcess/
+        headers:
+          Authorization: Token ${{ SECRETS.harfanglab.API_KEY }}
+          Content-Type: application/json
+  returns: ${{ steps.http_call.result }}

@@ -1,267 +1,270 @@
+---
+name: tracecat-integration-builder
+description: Build a complete Tracecat integration for ANY technology from just a URL. Use when the user provides a documentation URL, API reference, or product page and wants to integrate that service into Tracecat with actions, secrets, and workflows.
+---
+
 # Tracecat Integration Builder
 
-Build Tracecat integrations to connect external APIs/tools. There are **two methods** — both use Tracecat's native secrets system and `core.http_request`. No custom OAuth, no separate MCP servers, no external auth middleware needed.
+You build complete Tracecat integrations from scratch. The user gives you a URL (docs, API reference, product page — anything), and you deliver a working integration: secrets, actions, edges, positioning, ready to use.
 
-## When to Use
+## Critical Rules
 
-- User wants to add a new integration (e.g., "add HarfangLab", "integrate MISP")
-- User has an OpenAPI spec and wants to generate action templates
-- User asks about the OpenAPI converter or `openapi_to_template.py`
-- User wants to connect a new API/tool to Tracecat
+1. **The user gives a URL, you do everything else** — research the API, figure out auth, build the actions, deploy
+2. **Auth ALWAYS goes through Tracecat secrets** — `${{ SECRETS.xxx.KEY }}`, never hardcoded
+3. **Use native Tracecat action types first** — check if `tools.<service>.*` already exists before building custom actions
+4. **Always connect edges and position nodes** — every integration must be a deployable workflow, not orphan actions
+5. **Ask for credentials, never guess them** — prompt the user for API keys/tokens, then create the secret via MCP
 
-## Key Principle: Tracecat Handles Auth Natively
+## Process
 
-Tracecat integrations do NOT need:
-- Custom OAuth flows or MCP servers per vendor
-- External auth middleware or token refresh logic
-- Separate credential stores
+### Step 1: Research the service (YOU do this, not the user)
 
-Instead, ALL integrations follow the same pattern:
-1. **Create a Tracecat secret** with API keys/tokens (`tracecat_create_secret`)
-2. **Reference the secret** in action templates via `${{ SECRETS.<name>.<KEY> }}`
-3. **Use `core.http_request`** with the secret injected in headers/params
+When the user gives you a URL:
 
-This works for API keys, Bearer tokens, Basic auth, custom headers — everything.
+1. **Fetch the URL** with WebFetch to understand what the service is
+2. **Search for API documentation** — look for:
+   - REST API reference / endpoints list
+   - Authentication method (API key, OAuth2, Basic, JWT, custom header)
+   - Rate limits and pagination
+   - OpenAPI/Swagger spec if available
+3. **Search for an OpenAPI spec** — check:
+   - `{base_url}/openapi.json`, `{base_url}/swagger.json`, `{base_url}/api-docs`
+   - GitHub repos of the service (often have specs in `/docs` or `/api`)
+   - Community specs on https://apis.guru or GitHub
+4. **Determine the SOAR-relevant endpoints** — for security tools, focus on:
+   - Alerts / detections / events (GET)
+   - Assets / devices / users (GET)
+   - Containment / isolation / blocking (POST)
+   - IOC submission / lookup (GET/POST)
+   - Ticket / case creation (POST)
 
-## Two Methods for Building Integrations
+### Step 2: Determine the integration strategy
 
-| | Path A: OpenAPI Converter | Path B: Manual Templates |
-|---|---|---|
-| **When** | Vendor publishes OpenAPI 3.0 spec | No spec available, or spec is incomplete |
-| **How** | `openapi_to_template.py` auto-generates YAML | Write YAML action templates by hand |
-| **Speed** | Fast (minutes) | Slower (research + write) |
-| **Examples** | CrowdStrike, Jira, PagerDuty, Wazuh, VirusTotal | HarfangLab EDR, MISP (older), custom internal APIs |
-| **Auth** | Injected via config YAML | Injected directly in template YAML |
+Based on your research, pick the right approach:
 
-Both methods produce the same output: YAML action templates that use `core.http_request` + Tracecat secrets.
+| Situation | Strategy |
+|-----------|----------|
+| OpenAPI 3.0 spec available | Use Tracecat OpenAPI Converter (fastest) |
+| OpenAPI 2.0 (Swagger) spec | Convert to 3.0, then use converter |
+| REST API with good docs, no spec | Build actions manually with `core.http_request` |
+| Webhook/push-based service | Configure Tracecat webhook trigger |
+| Non-HTTP protocol (syslog, gRPC) | Use `core.script.run_python` with appropriate libs |
+| Service already has native Tracecat integration | Just create the secret and use existing `tools.*` actions |
 
-## Path A: OpenAPI Converter
+### Step 3: Build the integration
 
-Tracecat's official tool for generating integrations from OpenAPI 3.0 specs.
+#### Path A — OpenAPI Converter (if spec exists)
 
-### Command
-```bash
-uv run scripts/openapi_to_template.py --input <spec> --output-dir <dir> [--config <config.yaml>]
-```
-
-### Supported: OpenAPI 3.0 only
-- OAS 2.0 (Swagger) and OAS 3.1 are NOT supported
-- If the spec is Swagger 2.0, convert it first: https://converter.swagger.io/
-
-## Config YAML — Full Reference
-
-### Endpoints Filtering
+1. Download/fetch the OpenAPI spec
+2. Create the conversion config YAML:
 ```yaml
 endpoints:
   include:
-    like: ["/api/v1/alerts*", "/api/v1/threat*"]   # Glob patterns
-    exact: ["/api/v1/status"]                        # Exact match
-  exclude:
-    like: ["/api/v1/admin/*", "/api/v1/internal/*"]
-    exact: ["/api/v1/debug"]
-```
-
-**Strategy:** Start with `include.like` to select only the endpoints you need. Use `exclude` to remove noisy/admin endpoints.
-
-### Definition Overrides
-```yaml
-definition_overrides:
-  namespace: "integrations.harfanglab"    # Prefix for action names
-  display_group: "HarfangLab EDR"         # UI grouping
-  author: "adrojis"
-  doc_url_prefix: "https://docs.harfanglab.io/api"
-```
-
-Per-action overrides:
-```yaml
-  name: "get_alert"           # Override action name
-  title: "Get Alert Details"  # Human-readable title
-  description: "..."          # Custom description
-  deprecated: "Use v2"        # Mark as deprecated
-```
-
-### Authentication
-```yaml
-auth:
-  secrets:
-    - name: "harfanglab"
-      keys: ["API_KEY", "BASE_URL"]
-  injection:
-    args:
-      headers:
-        Authorization: "Token ${{ SECRETS.harfanglab.API_KEY }}"
-  expects:
-    base_url:
-      type: "str"
-      description: "HarfangLab API base URL"
-      default: "${{ SECRETS.harfanglab.BASE_URL }}"
-```
-
-**Auth patterns by vendor:**
-
-| Vendor | Header | Format |
-|--------|--------|--------|
-| Generic API Key | `Authorization` | `ApiKey ${{ SECRETS.x.API_KEY }}` |
-| Bearer Token | `Authorization` | `Bearer ${{ SECRETS.x.TOKEN }}` |
-| Basic Auth | `Authorization` | `Basic ${{ FN.to_base64(SECRETS.x.USER + ":" + SECRETS.x.PASS) }}` |
-| Custom Header | `X-Api-Key` | `${{ SECRETS.x.API_KEY }}` |
-| Query Param | `params.api_key` | `${{ SECRETS.x.API_KEY }}` |
-
-### Output Organization
-```yaml
-use_namespace_directories: true   # Subdirectories per namespace
-```
-
-## Path B: Manual Templates (Real Example — HarfangLab EDR)
-
-HarfangLab has NO OpenAPI spec. We built 17 manual templates by researching their API from FortiSOAR connectors, Cortex XSOAR integrations, and SDK docs.
-
-### API Details
-- **Auth**: `Authorization: Token <API_KEY>`, base URL `https://<instance>:8443`
-- **Sources used**: FortiSOAR connector, Cortex XSOAR integration, SDK
-
-### Template structure (example: get_alert.yaml)
-```yaml
-type: action
-definition:
-  name: get_alert
-  namespace: integrations.harfanglab
-  title: Get Alert Details
-  description: Retrieve detailed information about a specific alert
-  display_group: HarfangLab EDR
-  expects:
-    alert_id:
-      type: str
-      description: Alert ID to retrieve
-  secrets:
-    - name: harfanglab
-      keys: ["API_KEY", "BASE_URL"]
-  steps:
-    - ref: get_alert
-      action: core.http_request
-      args:
-        method: GET
-        url: "${{ SECRETS.harfanglab.BASE_URL }}/api/data/alert/alert/Alert/${{ inputs.alert_id }}"
-        headers:
-          Authorization: "Token ${{ SECRETS.harfanglab.API_KEY }}"
-  returns: ${{ steps.get_alert.result }}
-```
-
-### Workflow built with these templates
-**HarfangLab Alert Triage** (`wf_4PnQXYJQ65tDxRAI2pWxUo`) — 5 actions, fan-out/fan-in:
-```
-Trigger (500, 0) -> List Recent Alerts (500, 300)
-                         |              |
-           Get Alert Details    Search Affected Endpoint
-           (200, 500)           (800, 500)
-                         |              |
-                    Create Triage Case (500, 700)
-                              |
-                    Update Alert Status (500, 900)
-```
-
-### Lessons from HarfangLab
-1. **Research multiple sources** — no single source had all endpoints documented
-2. **Start with core actions** — alerts, threats, IOCs, jobs (don't try to cover everything)
-3. **Verify field names on live instance** — some field names from docs don't match reality
-4. **Position nodes correctly** — fan-out needs 600px horizontal spacing, 200px vertical
-
-## Path A: Step-by-Step
-
-### 1. Find the OpenAPI Spec
-- Check vendor docs for `/openapi.json` or `/swagger.json`
-- Search GitHub: `repo:vendor/product openapi.json`
-- Try: `https://<api-url>/openapi.json`, `https://<api-url>/v3/api-docs`
-- Some vendors publish specs on SwaggerHub
-
-### 2. Write the Config YAML
-```yaml
-# config-harfanglab.yaml
-endpoints:
-  include:
     like:
-      - "/api/data/alert/alert/Alert*"
-      - "/api/data/threat/ThreatIntel*"
-      - "/api/data/Job*"
+      - "/relevant/endpoints/*"
   exclude:
     like:
-      - "/api/v1/admin/*"
+      - "/auth/*"
+      - "/admin/*"
 
 definition_overrides:
-  namespace: "integrations.harfanglab"
-  display_group: "HarfangLab EDR"
-  author: "adrojis"
+  namespace: "tools.<service>"
+  display_group: "<Service Name>"
 
 auth:
   secrets:
-    - name: "harfanglab"
-      keys: ["API_KEY", "BASE_URL"]
+    - name: "<service>"
+      keys: ["API_KEY"]  # or CLIENT_ID, CLIENT_SECRET, etc.
   injection:
     args:
       headers:
-        Authorization: "Token ${{ SECRETS.harfanglab.API_KEY }}"
-  expects:
-    base_url:
-      type: "str"
-      description: "HarfangLab instance URL"
-      default: "${{ SECRETS.harfanglab.BASE_URL }}"
+        Authorization: "Bearer ${{ SECRETS.<service>.API_KEY }}"
+```
+3. Run: `uv run scripts/openapi_to_template.py --input <spec> --output-dir <dir> --config <config>`
+4. Import generated templates into Tracecat
+
+#### Path B — Manual build (most common for security tools)
+
+Build the full workflow directly via MCP tools:
+
+1. **Create the workflow**
+```
+tracecat_create_workflow:
+  title: "<Service> Integration"
+  description: "Automated <service> integration"
 ```
 
-### 3. Run the Converter
-```bash
-uv run scripts/openapi_to_template.py \
-  --input api-specs/harfanglab-openapi.json \
-  --output-dir generated_templates/harfanglab \
-  --config config-harfanglab.yaml
+2. **Create the secret** — ask the user for credentials first
+```
+tracecat_create_secret:
+  name: "<service>"
+  keys:
+    - key: "API_KEY"
+      value: "<user-provided-value>"
 ```
 
-### 4. Review Generated Templates
-- Check each YAML file in the output directory
-- Verify action names, input schemas, HTTP methods
-- Fix any `base_url` references if needed
-
-### 5. Deploy to Tracecat
-Option A: Copy templates to the local registry (`custom_registry/`)
-Option B: Use the Tracecat API to register templates
-
-### 6. Create the Secret
-Use the MCP tool:
+3. **Create actions** for each endpoint needed
 ```
-tracecat_create_secret(name="harfanglab", keys=["API_KEY", "BASE_URL"], values=["your-key", "https://your-instance.harfanglab.io"])
+tracecat_create_action:
+  workflow_id: "wf_xxx"
+  type: "core.http_request"
+  title: "Get <Service> Alerts"
 ```
 
-## Common Mistakes
+4. **Configure action inputs** (YAML string!)
+```
+tracecat_update_action:
+  action_id: "act_xxx"
+  workflow_id: "wf_xxx"
+  inputs: |
+    url: https://api.service.com/v1/alerts
+    method: GET
+    headers:
+      Authorization: Bearer ${{ SECRETS.service.API_KEY }}
+      Accept: application/json
+    params:
+      limit: 100
+```
 
-### 1. Wrong OpenAPI version
-OAS 2.0 (Swagger) won't work. Convert first via https://converter.swagger.io/
+5. **Connect edges** — link trigger → actions → downstream
+```
+tracecat_add_edges:
+  workflow_id: "wf_xxx"
+  edges:
+    - source_id: "<trigger_id>"
+      target_id: "<first_action_id>"
+      source_type: "trigger"
+```
 
-### 2. Too many endpoints
-Don't convert the entire spec. Use `include.like` to select only what you need. Most APIs have 100+ endpoints but you only need 10-20.
+6. **Position nodes** for clean visual layout
+```
+tracecat_move_nodes:
+  workflow_id: "wf_xxx"
+  positions:
+    - action_id: "<action_id>"
+      x: 500
+      y: 300
+```
 
-### 3. Missing auth injection
-Without `auth.injection`, generated templates won't authenticate. Always define the auth section.
+7. **Validate and deploy**
+```
+tracecat_validate_workflow: { workflow_id: "wf_xxx" }
+tracecat_deploy_workflow: { workflow_id: "wf_xxx" }
+```
 
-### 4. Wrong secret key names
-Secret keys must match EXACTLY what's in `injection.args.headers`. If you write `${{ SECRETS.harfanglab.API_KEY }}`, the secret must have a key named `API_KEY`.
+#### Path C — Webhook trigger (push-based services)
 
-### 5. Forgetting `base_url` in expects
-Most APIs need a configurable base URL. Always add it in `auth.expects` with a default pointing to the secret.
+For services that push events to Tracecat (Splunk alerts, Wazuh events, etc.):
 
-### 6. Namespace collisions
-If you generate templates for the same vendor twice, they'll overwrite. Use unique namespaces.
+1. Create workflow with webhook trigger
+2. Enable the webhook: status "online"
+3. Give the user the webhook URL to configure in the source service
+4. Build downstream processing actions (enrichment, case creation, etc.)
 
-### 7. verify_ssl for on-premise APIs
-On-prem instances often have self-signed certs. Add `verify_ssl: false` in the HTTP request args of generated templates.
+### Step 4: Test the integration
 
-### 8. Pagination not handled
-The converter generates one-shot requests. For list endpoints that return paginated results, you may need to manually add loop logic.
+1. **Validate** — `tracecat_validate_workflow`
+2. **Dry run** — `tracecat_run_workflow` with test payload
+3. **Check execution** — `tracecat_get_execution_compact` to verify each action succeeded
+4. **Debug if needed** — check error messages, fix inputs, re-validate
 
-## Architecture Note
+## Auth Patterns Quick Reference
 
-**You do NOT need separate MCP servers per integration.** The OpenAPI converter + Tracecat secrets system handles everything. Our MCP server is the "control plane" for managing workflows, secrets, and cases.
+### API Key (header)
+```yaml
+headers:
+  x-apikey: ${{ SECRETS.virustotal.API_KEY }}
+```
 
-## Reference
-- Docs: https://docs.tracecat.com/integrations/openapi-converter
-- Endpoint filtering: https://docs.tracecat.com/integrations/openapi-converter#endpoints-filtering
-- Memory: `memory/openapi-converter.md`
-- Memory: `memory/harfanglab-integration.md`
+### API Key (query param)
+```yaml
+params:
+  api_key: ${{ SECRETS.service.API_KEY }}
+```
+
+### Bearer Token
+```yaml
+headers:
+  Authorization: Bearer ${{ SECRETS.service.TOKEN }}
+```
+
+### Basic Auth
+```yaml
+headers:
+  Authorization: Basic ${{ FN.to_base64(SECRETS.service.USER + ':' + SECRETS.service.PASSWORD) }}
+```
+
+### OAuth2 (requires token refresh workflow)
+```yaml
+# Step 1: Token request action
+url: https://auth.service.com/oauth2/token
+method: POST
+headers:
+  Content-Type: application/x-www-form-urlencoded
+payload:
+  grant_type: client_credentials
+  client_id: ${{ SECRETS.service.CLIENT_ID }}
+  client_secret: ${{ SECRETS.service.CLIENT_SECRET }}
+
+# Step 2: Use token in subsequent actions
+headers:
+  Authorization: Bearer ${{ ACTIONS.get_token.result.access_token }}
+```
+
+### Custom/JWT (Wazuh-style)
+```yaml
+# Step 1: Auth action to get JWT
+url: ${{ SECRETS.wazuh.BASE_URL }}/security/user/authenticate
+method: POST
+headers:
+  Authorization: Basic ${{ FN.to_base64(SECRETS.wazuh.API_USER + ':' + SECRETS.wazuh.API_PASSWORD) }}
+
+# Step 2: Use JWT in subsequent actions
+headers:
+  Authorization: Bearer ${{ ACTIONS.auth.result.data.token }}
+```
+
+## Layout Rules (rappel)
+
+| Element | Position |
+|---------|----------|
+| Trigger | x=500, y=0 |
+| First action | x=500, y=300 |
+| Vertical spacing | 160px between rows |
+| Horizontal spacing | 320px between parallel nodes |
+| Spine principal | x=500 |
+
+## SOAR Use Case Templates
+
+### Enrichment Pipeline
+```
+Trigger → Fetch IOC → Check TI Service → Score → Create Case (if malicious)
+```
+
+### Alert Triage
+```
+Webhook (alert) → Extract IOCs → Parallel Enrichment → Aggregate → Decision → Case/Notification
+```
+
+### Containment
+```
+Trigger → Verify Threat → Isolate Host → Block IOC → Create Case → Notify SOC
+```
+
+### Scheduled Check
+```
+Schedule (every 5min) → Query SIEM → Filter New Alerts → Enrich → Create Cases
+```
+
+## Related Skills
+- **tracecat-action-configuration** — Action types, inputs format, control flow
+- **tracecat-secrets-integrations** — Secret creation patterns per service
+- **tracecat-workflow-patterns** — Workflow architecture patterns
+- **tracecat-integration-expert** — Existing native integration reference
+- **tracecat-mcp-tools-expert** — MCP tool usage for deployment
+- **tracecat-validation-debug** — Debug integration issues
+
+## Reference Files
+- [Common Mistakes](./COMMON_MISTAKES.md)
+- [Examples](./EXAMPLES.md)
+- [README](./README.md)

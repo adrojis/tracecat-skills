@@ -1,0 +1,9 @@
+{
+  "name": "tracecat-skills",
+  "version": "1.0.0",
+  "description": "Expert skills for building Tracecat SOAR workflows with Claude Code",
+  "author": { "name": "Adroj" },
+  "license": "MIT",
+  "keywords": ["tracecat", "soar", "security", "automation", "workflow"],
+  "skills": "./skills/"
+}

@@ -1,0 +1,40 @@
+type: action
+definition:
+  name: list_threat_intel_sources
+  namespace: tools.harfanglab
+  title: List Threat Intel Sources
+  description: |
+    List all threat intelligence sources configured in HarfangLab EDR.
+    Returns YARA, Sigma, and IOC sources with their status and metadata.
+  author: Tracecat Integration Builder
+  display_group: HarfangLab EDR
+  expects:
+    base_url:
+      type: str
+      description: "HarfangLab instance URL"
+      default: null
+    source_type:
+      type: str
+      description: "Source type: yara, sigma, ioc"
+      default: ioc
+    search:
+      type: str
+      description: "Search term"
+      default: null
+  steps:
+    - ref: resolve_path
+      action: core.transform.reshape
+      args:
+        value: >-
+          ${{ 'YaraSource' if inputs.source_type == 'yara' else ('SigmaSource' if inputs.source_type == 'sigma' else 'IOCSource') }}
+    - ref: http_call
+      action: core.http_request
+      args:
+        method: GET
+        url: ${{ inputs.base_url }}/api/data/threat_intelligence/${{ steps.resolve_path.result }}/
+        headers:
+          Authorization: Token ${{ SECRETS.harfanglab.API_KEY }}
+          Accept: application/json
+        params:
+          search: ${{ inputs.search }}
+  returns: ${{ steps.http_call.result }}

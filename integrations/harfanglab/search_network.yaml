@@ -1,0 +1,57 @@
+type: action
+definition:
+  name: search_network
+  namespace: tools.harfanglab
+  title: Search Network Connections (Telemetry)
+  description: |
+    Search network connection telemetry in HarfangLab EDR.
+    Find connections by source/destination IP address and port.
+    Useful for lateral movement detection and C2 investigation.
+  author: Tracecat Integration Builder
+  display_group: HarfangLab EDR
+  expects:
+    base_url:
+      type: str
+      description: "HarfangLab instance URL"
+      default: null
+    source_address:
+      type: str
+      description: "Source IP address"
+      default: null
+    destination_address:
+      type: str
+      description: "Destination IP address"
+      default: null
+    source_port:
+      type: int
+      description: "Source port"
+      default: null
+    destination_port:
+      type: int
+      description: "Destination port"
+      default: null
+    hostname:
+      type: str
+      description: "Filter by hostname"
+      default: null
+    limit:
+      type: int
+      description: "Maximum results"
+      default: 100
+  steps:
+    - ref: http_call
+      action: core.http_request
+      args:
+        method: GET
+        url: ${{ inputs.base_url }}/api/data/telemetry/Network/
+        headers:
+          Authorization: Token ${{ SECRETS.harfanglab.API_KEY }}
+          Accept: application/json
+        params:
+          saddr: ${{ inputs.source_address }}
+          daddr: ${{ inputs.destination_address }}
+          sport: ${{ inputs.source_port }}
+          dport: ${{ inputs.destination_port }}
+          agent__hostname: ${{ inputs.hostname }}
+          limit: ${{ inputs.limit }}
+  returns: ${{ steps.http_call.result }}

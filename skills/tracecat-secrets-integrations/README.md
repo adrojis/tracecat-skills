@@ -1,21 +1,31 @@
 # tracecat-secrets-integrations
 
+## Purpose
+Expert guide for configuring secrets and connecting external tools with authentication in Tracecat — secret types, key naming, and 16+ integration-specific configurations.
+
 ## Activation Triggers
-- Connecting integrations to Tracecat
-- Configuring secrets and credentials
-- Setting up Splunk, CrowdStrike, Okta, Wazuh, Slack, Jira
-- Building custom integrations (YAML templates or Python UDFs)
-- Multi-tenant secret management
-- IOC extraction patterns
+- User creates or manages secrets
+- User connects a new integration requiring authentication
+- User references secrets in workflow expressions
+- User asks about secret types or key naming
+- User troubleshoots secret access errors
+
+## Files
+| File | Description |
+|------|-------------|
+| `SKILL.md` | Main skill — secret management, 16+ integrations |
+| `README.md` | This file — metadata and overview |
+| `COMMON_MISTAKES.md` | Wrong vs right patterns for secrets |
+| `EXAMPLES.md` | Complete secret setup and usage examples |
 
 ## Dependencies
-- Tracecat instance running
-- API keys/credentials for target integrations
+- **tracecat-integration-expert** — Integration requirements
+- **tracecat-mcp-tools-expert** — MCP tools for secret CRUD
+- **tracecat-action-configuration** — Using secrets in action inputs
 
-## Coverage
-- Secret syntax and types (custom, OAuth, mTLS)
-- 42 integration namespaces with secret mappings
-- Splunk complete reference (18 native + HTTP patterns for missing features)
-- Custom integration development (YAML + Python)
-- IOC extraction functions
-- Multi-tenant secret patterns
+## Success Criteria
+- Secret name follows convention (lowercase, provider name)
+- Key names match what integrations expect
+- Secrets accessed via ${{ SECRETS.name.KEY }}
+- No hardcoded credentials in workflows
+- Secret type is appropriate (custom, token, oauth2)

@@ -1,355 +1,253 @@
 ---
 name: tracecat-action-configuration
-description: Configure Tracecat workflow actions correctly. Use when setting up HTTP requests, transforms, AI actions, Python scripts, loops, conditions, retry policies, or any action type in a Tracecat workflow.
+description: Activate when users configure Tracecat workflow actions — HTTP requests, transforms, AI actions, Python scripts, loops, conditions, retry policies, case operations, or any action type
 ---
 
-# Tracecat Action Configuration
+# Tracecat Action Configuration Expert
 
-## Core Action Types
+You are an expert at configuring Tracecat workflow actions correctly. Use this reference for action types, required fields, inputs format, and control flow.
 
-### HTTP Request (`core.http_request`)
+## Critical Rules
 
-| Parameter | Type | Required | Default |
-|-----------|------|----------|----------|
-| `url` | str | Yes | -- |
-| `method` | GET/POST/PUT/PATCH/DELETE | Yes | -- |
-| `headers` | dict | No | -- |
-| `params` | dict | No | -- |
-| `payload` | dict/list | No | -- |
-| `form_data` | dict | No | -- |
-| `auth` | dict | No | -- |
-| `timeout` | float | No | 10.0 |
-| `follow_redirects` | bool | No | false |
-| `verify_ssl` | bool | No | true |
+1. **ALWAYS use native/official action types first** — NEVER use `core.transform.reshape`, `core.http_request`, or `core.script.run_python` when a native action exists for the operation. This is the #1 rule.
+   - Cases: use `core.cases.create_case`, `core.cases.update_case`, `core.cases.create_comment` — NOT reshape + http_request
+   - Integrations: use `tools.virustotal.*`, `tools.crowdstrike.*`, `tools.okta.*`, `tools.splunk.*`, `tools.microsoft_defender.*`, `tools.sharepoint.*`, etc. — NOT core.http_request with manual auth headers
+   - Only fall back to `core.http_request` when NO native integration exists for that API
+   - Only use `core.transform.reshape` for data transformation/aggregation, NEVER for CRUD operations that have native actions
+   - Only use `core.script.run_python` when the logic cannot be expressed with native actions or expressions
+2. **Inputs are YAML strings** — when using the MCP `tracecat_update_action` tool, `inputs` must be a YAML string, NOT a JSON object
+3. **Action type format** — use underscores: `core.http_request` (NOT `core.http.request`)
+4. **Field name for Python** — the field is `script` (NOT `code`)
+5. **Boolean expressions** — use `${{ ACTIONS.x.result }}` (truthy) and `${{ not ACTIONS.x.result }}` (falsy). NEVER use `== true` or `== false`
+6. **Logical operators** — use `&&` and `||` (NOT `and`/`or`)
 
-**IMPORTANT**: Use `payload` NOT `body` for request body.
+## Action Types Reference
 
-Returns: `{status_code, headers, data}`
+### core.transform.reshape
+Transform, aggregate, or restructure data. Most versatile action.
 
-### HTTP Polling (`core.http_poll`)
-
-Same as `core.http_request` plus:
-
-| Parameter | Type | Default |
-|-----------|------|----------|
-| `poll_retry_codes` | list[int] | -- |
-| `poll_interval` | float | -- |
-| `poll_max_attempts` | int | 10 |
-| `poll_condition` | str (lambda) | -- |
-
-```yaml
-poll_retry_codes: [404]
-poll_interval: 5
-poll_condition: "lambda x: x['data'].get('status') == 'completed'"
-```
-
-### HTTP Pagination (`core.http_paginate`)
-
-| Parameter | Type | Required |
-|-----------|------|----------|
-| `stop_condition` | str (lambda) | Yes |
-| `next_request` | str (lambda) | Yes |
-| `items_jsonpath` | str | No |
-| `limit` | int | No (default 1000) |
-
-### Reshape (`core.transform.reshape`)
-
-Single `value` parameter. Use for:
-- Renaming fields
-- Extracting nested data
-- Combining data from multiple actions
-- Debugging (reshape = print)
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `value` | any | Yes | The value to output (expression or literal) |
 
 ```yaml
 value:
-  ip: ${{ TRIGGER.src_ip }}
-  is_public: ${{ FN.ipv4_is_public(TRIGGER.src_ip) }}
-  timestamp: ${{ FN.to_isoformat(FN.now()) }}
+  summary: ${{ ACTIONS.enrich.result.data.summary }}
+  score: ${{ ACTIONS.score.result.risk_score }}
+  is_malicious: ${{ ACTIONS.check.result.positives > 5 }}
 ```
 
-### Transform Actions
+**Use for:** reshaping API responses, building payloads, combining results from parallel actions, creating conditional values.
 
-| Action | Use case | Key params |
-|--------|----------|------------|
-| `core.transform.filter` | Filter list items | `items`, `python_lambda` |
-| `core.transform.apply` | Transform single value | `value`, `python_lambda` |
-| `core.transform.map` | Transform each item | `items`, `python_lambda` |
-| `core.transform.deduplicate` | Remove duplicates | `items`, `keys` |
-| `core.transform.is_in` | Check membership | `items`, `collection` |
-| `core.transform.not_in` | Check non-membership | `items`, `collection` |
-| `core.transform.scatter` | Split list to items | `collection` |
-| `core.transform.gather` | Merge items to list | `items` |
+### core.http_request
+Make HTTP requests to external APIs.
 
-**Lambda syntax** (always use `>-` block modifier):
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `url` | string | Yes | Target URL |
+| `method` | string | Yes | GET, POST, PUT, PATCH, DELETE |
+| `headers` | object | No | HTTP headers |
+| `payload` | object | No | Request body (JSON) |
+| `params` | object | No | Query parameters |
+| `timeout` | integer | No | Timeout in seconds (default: 30) |
+
 ```yaml
-python_lambda: >-
-  lambda x: x['severity'] == 'high'
+url: https://api.virustotal.com/api/v3/files/${{ ACTIONS.get_hash.result.sha256 }}
+method: GET
+headers:
+  x-apikey: ${{ SECRETS.virustotal.API_KEY }}
+  Accept: application/json
 ```
 
-### Python Script (`core.script.run_python`)
+**Use for:** external API calls without a native integration. Always prefer native integrations when available.
 
-| Parameter | Type | Default |
-|-----------|------|----------|
-| `script` | str (Python code) | required |
-| `inputs` | dict | -- |
-| `dependencies` | list[str] | -- |
-| `timeout_seconds` | int | 30 |
-| `allow_network` | bool | false |
+### core.script.run_python
+Execute Python code in a sandboxed environment.
 
-Rules:
-- Script MUST contain at least one function
-- Multiple functions -> one must be named `main`
-- Return must be JSON-serializable
-- Input keys must match function parameter names
-- Network disabled by default
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `script` | string | Yes | Python code (must have a `main` function) |
+| `inputs` | object | No | Key-value pairs passed as function arguments |
+| `dependencies` | array | No | Pip packages to install |
+| `timeout_seconds` | integer | No | Max execution time (default: 30) |
+| `allow_network` | boolean | No | Enable outbound network (default: false) |
 
 ```yaml
 script: |
-  def main(alert_data):
-      if not alert_data:
-          return {"success": False, "error": "No data"}
-      score = len(alert_data.get("indicators", []))
-      return {"success": True, "risk_score": score}
+  def main(items, threshold):
+      return [i for i in items if i["score"] > threshold]
 inputs:
-  alert_data: ${{ ACTIONS.get_alert.result }}
-dependencies:
-  - requests
-allow_network: true
+  items: ${{ ACTIONS.fetch.result.data }}
+  threshold: 50
 ```
 
-**Alternative: Inject data via template expressions** (no `inputs` needed):
+**See tracecat-code-python skill for detailed patterns.**
+
+### core.cases.create_case
+Create a new case in case management.
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `case_title` | string | Yes | Title of the case |
+| `payload` | object | No | Case payload data |
+| `status` | string | No | Initial status (new, in_progress, resolved, closed) |
+| `priority` | string | No | Priority (low, medium, high, critical) |
+| `malice` | string | No | Malice level (benign, malicious, unknown) |
+| `action` | string | No | Recommended action |
 
 ```yaml
-script: |
-  import json
-
-  def process():
-      data = json.loads("""${{ FN.serialize_json(ACTIONS.previous_action.result) }}""")
-      # Process data...
-      return {"processed": True, "count": len(data)}
+case_title: "Suspicious file detected: ${{ ACTIONS.analyze.result.filename }}"
+payload:
+  source_ip: ${{ TRIGGER.data.src_ip }}
+  file_hash: ${{ TRIGGER.data.hash }}
+  vt_score: ${{ ACTIONS.vt_check.result.positives }}
+status: new
+priority: ${{ ACTIONS.score.result.priority }}
+malice: ${{ ACTIONS.score.result.malice }}
+action: Investigate and contain
 ```
 
-**CRITICAL**: Top-level `return` is NOT allowed. Code MUST be inside a function.
-Wrong: `return {"result": 42}` at module level.
-Right: `def main(): return {"result": 42}`
+### core.cases.update_case
+Update an existing case.
 
-### AI Actions
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `case_id` | string | Yes | Case ID to update |
+| `status` | string | No | New status |
+| `priority` | string | No | New priority |
+| `malice` | string | No | New malice level |
+| `action` | string | No | New action |
 
-| Action | Use case |
-|--------|----------|
-| `ai.action` | Single LLM call with prompt |
-| `ai.agent` | LLM with tool calling |
+### core.cases.create_comment
+Add a comment to a case.
 
-```yaml
-# Simple AI analysis
-- ref: ai_triage
-  action: ai.action
-  args:
-    user_prompt: |
-      Analyze this alert and return JSON:
-      {"risk_score": 1-10, "summary": "...", "recommendations": [...]}
-      Alert: ${{ FN.serialize_json(ACTIONS.get_alert.result) }}
-    model_name: gpt-4o-mini
-    model_provider: openai
-```
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `case_id` | string | Yes | Case ID |
+| `content` | string | Yes | Comment text |
 
-**Tip**: Use gpt-4o-mini for high-volume triage (cheaper, fast enough).
-**Tip**: Convert JSON to YAML before sending to AI (20-30% fewer tokens).
+### core.workflow.execute
+Run a child workflow.
 
-### Child Workflow (`core.workflow.execute`)
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `workflow_id` | string | Yes | ID of the workflow to execute |
+| `payload` | object | No | Input data for the child workflow |
+| `timeout` | integer | No | Timeout in seconds |
 
-| Parameter | Type | Default |
-|-----------|------|----------|
-| `workflow_alias` | str | -- |
-| `workflow_id` | str | -- |
-| `trigger_inputs` | dict | -- |
-| `wait_strategy` | wait/detach | detach |
-| `loop_strategy` | parallel/batch/sequential | -- |
-| `batch_size` | int | -- |
-| `fail_strategy` | isolated/all | -- |
+### core.send_email
+Send an email notification.
 
-```yaml
-- ref: run_enrichment
-  action: core.workflow.execute
-  for_each: ${{ for var.ip in ACTIONS.extract_ips.result }}
-  args:
-    workflow_alias: enrich_ip
-    trigger_inputs:
-      ip: ${{ var.ip }}
-    wait_strategy: wait
-    loop_strategy: parallel
-    batch_size: 5
-    fail_strategy: isolated
-```
-
-### Require (`core.require`)
-
-Gate that validates conditions before proceeding:
-
-```yaml
-- ref: validate
-  action: core.require
-  args:
-    conditions:
-      - ${{ FN.length(ACTIONS.results.result) > 0 }}
-      - ${{ ACTIONS.auth.result.status_code == 200 }}
-    raise_error: true
-    require_all: true
-```
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `to` | string/array | Yes | Recipient(s) |
+| `subject` | string | Yes | Email subject |
+| `body` | string | Yes | Email body (supports HTML) |
 
 ## Control Flow
 
-### If/Else Branching — Decision hierarchy (prefer top options)
-
-**1. Filters + run_if (BEST — visual, no code)**
-
-Use `core.transform.filter` to split data into branches, then `run_if` on downstream actions:
-
+### run_if — Conditional execution
 ```yaml
-# Filter splits the list by condition
-- ref: filter_critical
-  action: core.transform.filter
-  args:
-    items: ${{ ACTIONS.extract_stats.result }}
-    python_lambda: >-
-      lambda x: x['score'] >= 16
+# Execute only if score is high
+run_if: ${{ ACTIONS.score.result.risk > 70 }}
 
-# Case only runs if filter found results
-- ref: case_critical
-  action: core.cases.create_case
-  depends_on: [filter_critical]
-  run_if: ${{ FN.length(ACTIONS.filter_critical.result) > 0 }}
-  for_each: ${{ for var.item in ACTIONS.filter_critical.result }}
-  args:
-    summary: "CRITICAL - ${{ var.item.ip }}"
-    priority: critical
-    status: new
+# Execute only for public IPs
+run_if: ${{ FN.ipv4_is_public(TRIGGER.data.src_ip) }}
+
+# Negate a boolean result
+run_if: ${{ not ACTIONS.is_whitelisted.result }}
+
+# Combine conditions
+run_if: ${{ ACTIONS.is_malicious.result && ACTIONS.is_external.result }}
 ```
 
-This creates a visual tree in the UI where only active branches execute.
-
-**2. Reshape with ternary (OK — inline, single action)**
-
+### for_each — Loop over items
 ```yaml
-value:
-  priority: "${{ 'critical' if score >= 16 else ('high' if score >= 6 else 'low') }}"
+for_each: ${{ ACTIONS.get_iocs.result.indicators }}
+```
+When `for_each` is set, the action executes once per item. Access the current item via the action's normal input expressions.
+
+### join_strategy — Parallel merge
+- `all` (default) — Wait for all upstream actions
+- `any` — Continue as soon as one upstream completes
+
+### retry_policy — Auto-retry on failure
+```yaml
+control_flow:
+  retry_policy:
+    max_attempts: 3
+    timeout: 60
 ```
 
-Use when you need a computed field but don't need visual branching.
-
-**3. Python script (LAST RESORT — when logic is too complex)**
-
-Use `core.script.run_python` only when filter/reshape can't express the logic.
-
-### CRITICAL: run_if does NOT support loop variables
-
-`run_if` with `var.*` inside a `for_each` **FAILS**. This does NOT work:
+### start_delay — Delay before execution
 ```yaml
-# WRONG — will error
-run_if: ${{ var.item.score >= 16 }}
-for_each: ${{ for var.item in ACTIONS.data.result }}
+control_flow:
+  start_delay: 5  # seconds
 ```
 
-Instead, use `FN.length()` on an upstream filter result:
-```yaml
-# CORRECT
-run_if: ${{ FN.length(ACTIONS.filter_critical.result) > 0 }}
-for_each: ${{ for var.item in ACTIONS.filter_critical.result }}
+## MCP Tool Usage for Actions
+
+### Creating an action
+```
+tracecat_create_action:
+  workflow_id: "wf_xxx"
+  type: "core.http_request"
+  title: "Check IP on VirusTotal"
 ```
 
-### for_each on empty list = COMPLETED (green)
-
-A `for_each` over an empty list `[]` completes with 0 iterations and shows green in the UI. To prevent this, add a `run_if` that checks the list length first.
-
-### If Conditions
-
-```yaml
-run_if: ${{ ACTIONS.check.result.status == 200 }}
-run_if: ${{ ACTIONS.check.result.success == true && ACTIONS.check.result.count > 0 }}
-run_if: ${{ ACTIONS.severity.result in ["high", "critical"] }}
-run_if: ${{ ACTIONS.field.result != None }}
-run_if: ${{ FN.length(ACTIONS.filter.result) > 0 }}
+### Updating action inputs (YAML string!)
+```
+tracecat_update_action:
+  action_id: "act_xxx"
+  workflow_id: "wf_xxx"
+  inputs: "url: https://api.vt.com/v3/ip/${{ TRIGGER.data.ip }}\nmethod: GET\nheaders:\n  x-apikey: ${{ SECRETS.virustotal.API_KEY }}"
 ```
 
-### Loops
-
-```yaml
-for_each: ${{ for var.alert in ACTIONS.list_alerts.result[*] }}
-# Access: ${{ var.alert.id }}, ${{ var.alert.severity }}
+### Adding control flow
 ```
-
-Results from looped actions become a **list** (one entry per iteration).
-
-### Retry Policy
-
-```yaml
-retry_policy:
-  max_attempts: 3
-  timeout: 60
-  retry_until: ${{ ACTIONS.check_status.result.complete == true }}
-```
-
-### Wait Until
-
-Uses `dateparser`: `"tomorrow at 2pm"`, `"in 2 hours"`, `"2025-05-01 at 10am"`
-
-## Expression Reference
-
-### Contexts
-
-| Context | Syntax | Example |
-|---------|--------|----------|
-| Action output | `ACTIONS.ref.result` | `${{ ACTIONS.get_data.result.items[0] }}` |
-| Trigger data | `TRIGGER` | `${{ TRIGGER.alert_id }}` |
-| Secrets | `SECRETS.name.key` | `${{ SECRETS.splunk.SPLUNK_API_KEY }}` |
-| Functions | `FN.func()` | `${{ FN.now() }}` |
-| Loop var | `var.name` | `${{ var.item.field }}` |
-| Workspace vars | `VARS.ns.key` | `${{ VARS.splunk.base_url }}` |
-
-### Operators
-
-| Operator | Example |
-|----------|----------|
-| Comparison | `==`, `!=`, `>`, `>=`, `<`, `<=` |
-| Logical | `&&`, `\|\|` |
-| Membership | `in`, `not in` |
-| Identity | `is`, `is not`, `== None` |
-| Arithmetic | `+`, `-`, `*`, `/`, `%` |
-| Ternary | `${{ "yes" if x else "no" }}` |
-| Default | `${{ value \|\| "fallback" }}` |
-
-### Typecasting
-
-```yaml
-${{ int("42") }}
-${{ str(42) }}
-${{ "42" -> int }}
-${{ bool("true") }}
+tracecat_update_action:
+  action_id: "act_xxx"
+  workflow_id: "wf_xxx"
+  control_flow:
+    run_if: "${{ ACTIONS.check.result.is_suspicious }}"
+    retry_policy:
+      max_attempts: 3
+      timeout: 30
 ```
 
 ## Common Mistakes
 
-| Mistake | Fix |
-|---------|-----|
-| `body:` in HTTP action | Use `payload:` |
-| Nested `${{ ${{ }} }}` | Use `${{ FN.func1(FN.func2()) }}` |
-| Lambda with double quotes inside YAML string | Use `>-` block modifier |
-| Missing `[*]` for list JSONPath | `result.data[*].name` not `result.data.name` |
-| `for_each` with single item | String gets iterated char-by-char; use `core.http_request` directly |
-| Dots in field names | Quote them: `result."kibana.alert.rule.name"` |
-| AI returns free text | Use schema-constrained JSON output |
-| Using `code:` for run_python | Field is `script:` (NOT `code:`) |
-| Using reshape for case creation | Use `core.cases.create_case` (native action) |
-| Using reshape for case update | Use `core.cases.update_case` (native action) |
-| Using reshape for case comment | Use `core.cases.create_comment` (native action) |
-| Using http_request when native action exists | Always prefer native integrations (tools.*, core.cases.*, core.transform.*) |
-| Missing `verify_ssl: false` for self-signed Splunk/Wazuh | Add to HTTP request config |
-| Slow API timeout (default 10s) | Increase `timeout` param for long-running APIs |
+| Mistake | Correct |
+|---------|---------|
+| `core.http.request` | `core.http_request` |
+| `code: \|` in run_python | `script: \|` |
+| `run_if: ${{ x == true }}` | `run_if: ${{ x }}` |
+| `run_if: ${{ x and y }}` | `run_if: ${{ x && y }}` |
+| inputs as JSON object in MCP | inputs as YAML string |
+| Using reshape for cases | Use `core.cases.create_case` |
+| Missing `allow_network` for HTTP in Python | Set `allow_network: true` |
 
-## Action Type Selection Rule
+## Built-in Functions (FN)
 
-**ALWAYS prefer native Tracecat actions over generic ones:**
+| Function | Description |
+|----------|-------------|
+| `FN.ipv4_is_public(ip)` | Check if IPv4 is public |
+| `FN.str.upper(s)` | Uppercase string |
+| `FN.str.lower(s)` | Lowercase string |
+| `FN.serialize_json(obj)` | Serialize object to JSON string |
+| `FN.deserialize_json(s)` | Parse JSON string to object |
+| `FN.format.map_to_str(obj)` | Format map as readable string |
 
-1. **Native integrations first** (`tools.virustotal.*`, `tools.splunk.*`, `tools.slack.*`, `core.cases.*`, etc.)
-2. **`core.http_request`** only for external APIs without native integration
-3. **`core.script.run_python`** only when logic can't be expressed with reshape/filter/expressions
+## Related Skills
+- **tracecat-code-python** — Detailed Python scripting patterns
+- **tracecat-workflow-patterns** — Workflow architecture using these actions
+- **tracecat-yaml-syntax** — Expression syntax reference
+- **tracecat-case-management** — Case lifecycle details
+- **tracecat-secrets-integrations** — Secret configuration for action inputs
+- **tracecat-mcp-tools-expert** — MCP tools for creating/updating actions
+- **tracecat-validation-debug** — Debug action configuration errors
+
+## Reference Files
+- [Common Mistakes](./COMMON_MISTAKES.md)
+- [Examples](./EXAMPLES.md)
+- [README](./README.md)

@@ -1,0 +1,29 @@
+type: action
+definition:
+  name: get_job_status
+  namespace: tools.harfanglab
+  title: Get Job Status
+  description: |
+    Check the status of an investigation job in HarfangLab EDR.
+    Returns job progress, completion status, and result summary.
+  author: Tracecat Integration Builder
+  display_group: HarfangLab EDR
+  expects:
+    base_url:
+      type: str
+      description: "HarfangLab instance URL"
+      default: null
+    job_id:
+      type: str
+      description: "Job ID to check"
+      default: null
+  steps:
+    - ref: http_call
+      action: core.http_request
+      args:
+        method: GET
+        url: ${{ inputs.base_url }}/api/data/Job/${{ inputs.job_id }}/
+        headers:
+          Authorization: Token ${{ SECRETS.harfanglab.API_KEY }}
+          Accept: application/json
+  returns: ${{ steps.http_call.result }}
