@@ -76,10 +76,13 @@ tracecat_skills/
 ## Safety Rules
 
 1. **Never push `.env` files** or any file containing credentials
-2. **Always show diff** to user before pushing
-3. **Use descriptive commit messages** summarizing changes
-4. **Push to `main` branch** unless user specifies otherwise
-5. **Check for existing files** first to get SHA (required for updates)
+2. **Never push `.mcp.json`** — contains local paths and potentially sensitive env vars
+3. **Always show diff** to user before pushing
+4. **Use descriptive commit messages** summarizing changes
+5. **Push to `main` branch** unless user specifies otherwise
+6. **Check for existing files** first to get SHA (required for updates)
+7. **Scan for local paths** before pushing — reject any file containing `C:\Users\`, `/home/`, or absolute local paths that would leak user info
+8. **Scan for hardcoded credentials** — reject any file containing passwords, API keys, or tokens in plain text
 
 ## Related Skills
 - **tracecat-mcp-tools-expert** — MCP tools reference

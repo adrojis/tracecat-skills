@@ -17,7 +17,7 @@ You monitor the Tracecat ecosystem for changes that could impact our local MCP s
 
 ### Step 1: Get Current Known State
 
-Read the memory file at `C:\Users\Adroj\.claude\projects\C--Users-Adroj-Documents-Conteneur-Docker-tracecat\memory\tracecat-versions.md` to know the last checked version and state.
+Search for a memory file named `tracecat-versions.md` in the user's Claude memory directory to know the last checked version and state. Use Grep to find it if the path is unknown.
 
 If the file doesn't exist, create it after the first check.
 
