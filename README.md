@@ -4,10 +4,10 @@
 
 # tracecat-skills
 
-**Expert Claude Code skills for building flawless Tracecat SOAR workflows using the [tracecat-mcp](https://github.com/adrojis/tracecat-mcp) MCP server.**
+**Expert Claude Code skills for building flawless Tracecat SOAR workflows using the [tracecat-mcp-community](https://github.com/adrojis/tracecat-mcp-community) MCP server.**
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![tracecat-mcp](https://img.shields.io/badge/tracecat--mcp-compatible-green.svg)](https://github.com/adrojis/tracecat-mcp)
+[![tracecat-mcp-community](https://img.shields.io/badge/tracecat--mcp--community-compatible-green.svg)](https://github.com/adrojis/tracecat-mcp-community)
 [![Tracecat](https://img.shields.io/badge/Tracecat-v1.0.0--beta.31-purple.svg)](https://github.com/TracecatHQ/tracecat)
 
 ---
@@ -207,7 +207,7 @@ Synchronize local code to GitHub repositories.
 
 ### Prerequisites
 
-1. **[tracecat-mcp](https://github.com/adrojis/tracecat-mcp)** MCP server installed and configured
+1. **[tracecat-mcp-community](https://github.com/adrojis/tracecat-mcp-community)** MCP server installed and configured
 2. **Claude Code** CLI installed
 3. A running Tracecat instance
 
@@ -304,7 +304,7 @@ Contributions, issues, and feature requests are welcome.
 
 ## Related Projects
 
-- [tracecat-mcp](https://github.com/adrojis/tracecat-mcp) — MCP server for Tracecat (49 tools)
+- [tracecat-mcp-community](https://github.com/adrojis/tracecat-mcp-community) — Community MCP server for Tracecat (49 tools)
 - [Tracecat](https://github.com/TracecatHQ/tracecat) — Open-source SOAR platform
 
 ---

@@ -8,12 +8,12 @@ cd mcp_server
 git diff --stat
 
 # 2. Review the files to sync
-# Source: mcp_server/src/ → Repo: <owner>/tracecat-mcp
+# Source: mcp_server/src/ → Repo: <owner>/tracecat-mcp-community
 
 # 3. Push via GitHub MCP
 mcp__my-github__push_files({
   owner: "<owner>",
-  repo: "tracecat-mcp",
+  repo: "tracecat-mcp-community",
   branch: "main",
   message: "Add tracecat_autofix_workflow and tracecat_tools_documentation tools",
   files: [
@@ -54,7 +54,7 @@ mcp__my-github__push_files({
 # List current files in repo
 mcp__my-github__get_file_contents({
   owner: "<owner>",
-  repo: "tracecat-mcp",
+  repo: "tracecat-mcp-community",
   path: "src/tools"
 })
 
@@ -71,6 +71,6 @@ ls mcp_server/src/tools/
 Before every sync:
 1. **No secrets?** — grep for API keys, passwords, tokens in files to push
 2. **No dist/?** — only push source files
-3. **Correct repo?** — MCP code to tracecat-mcp, skills to tracecat-skills
+3. **Correct repo?** — MCP code to tracecat-mcp-community, skills to tracecat-skills
 4. **Descriptive commit?** — "Add X feature" not "update"
 5. **Diff reviewed?** — read the files before pushing

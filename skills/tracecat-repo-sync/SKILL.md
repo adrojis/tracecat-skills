@@ -11,7 +11,7 @@ You help synchronize local Tracecat MCP server code and skills to their GitHub r
 
 | Component | Local Path | GitHub Repo |
 |-----------|-----------|-------------|
-| MCP Server | `<project_root>/mcp_server/` | Owner's `tracecat-mcp` repo |
+| MCP Server | `<project_root>/mcp_server/` | Owner's `tracecat-mcp-community` repo |
 | Skills | `<project_root>/tracecat_skills/` | Owner's `tracecat-skills` repo |
 
 > **Note:** Local paths and GitHub owner are resolved at runtime from the working directory and git config.

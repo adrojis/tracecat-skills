@@ -25,5 +25,5 @@ Synchronize local Tracecat MCP server code and Claude Code skills to their GitHu
 - No credentials (.env, secrets) are pushed
 - Changes reviewed before push
 - Descriptive commit messages
-- Correct repository targeted (MCP → tracecat-mcp, Skills → tracecat-skills)
+- Correct repository targeted (MCP → tracecat-mcp-community, Skills → tracecat-skills)
 - dist/ and node_modules/ excluded

@@ -68,7 +68,7 @@ gh api search/repositories --jq '.items[] | .full_name + " - " + .description' -
 ```
 
 Also check:
-- `https://www.npmjs.com/search?q=tracecat-mcp`
+- `https://www.npmjs.com/search?q=tracecat-mcp-community`
 - `https://pypi.org/search/?q=tracecat+mcp`
 - GitHub MCP servers registry for Tracecat entries
 

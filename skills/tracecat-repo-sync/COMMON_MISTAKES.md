@@ -33,7 +33,7 @@ node_modules/
 # Pushing MCP server code to tracecat-skills repo
 ```
 **Right:**
-- MCP Server code → `<owner>/tracecat-mcp`
+- MCP Server code → `<owner>/tracecat-mcp-community`
 - Skills files → `<owner>/tracecat-skills`
 **Why:** Each codebase has its own repository. Mixing them creates confusion.
 
