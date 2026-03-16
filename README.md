@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/banner.png" alt="Tracecat Skills Banner" width="100%">
+</p>
+
 # tracecat-skills
 
 **Expert Claude Code skills for building flawless Tracecat SOAR workflows using the [tracecat-mcp](https://github.com/adrojis/tracecat-mcp) MCP server.**
